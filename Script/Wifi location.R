@@ -108,13 +108,44 @@ ggplot(building_distribution,aes(x=BUILDINGID))+ geom_bar()
 
 #exploring labels to predict
 
-individual_ids <- paste(raw_training_data_set$BUILDINGID,raw_training_data_set$SPACEID,sep = '-')
+individual_ids <- raw_training_data_set %>% select(BUILDINGID,SPACEID) %>% 
+  group_by(SPACEID,BUILDINGID) %>% 
+  summarise(total = sum(n()))
 
-individual_ids <- individual_ids %>% group_by(V1) %>% 
-  summarize(amount_by_class = sum(n()))
+individual_ids <- individual_ids[order(individual_ids$SPACEID),]
+
+duplicated_ids <- individual_ids[which(duplicated(individual_ids$SPACEID)==T),]
+
+duplicated_ids <- unique(duplicated_ids)
+
+#there are 138 factors that are duplicated for the the space id, will need to 
+#add to this data the column of the building to be able to work with it
+#as predicting individual ID would confuse the model with different kind of
+#observations pointing to the same place
+
+#Checking the data distribution by floor
+
+histogram(raw_training_data_set$FLOOR)
+
+#percent of the data by floor seems pretty stable except for the 4th floor which has
+#the lowest percent of the total of the data. this is consistent for previous plots
+#as the building number two is the only one that has a 4th floor.
 
 
-autoplot()
+#Preprocessing ----
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
