@@ -2,15 +2,17 @@
 
 #load packages ----
 
-pacman::p_load(dplyr,caret,ggplot2,tidyr,utils,matrixStats,rayshader,sf,viridis, graphics)
+pacman::p_load(dplyr,caret,ggplot2,tidyr,utils,matrixStats,sf,viridis, 
+               graphics,ranger)
 
-remotes::install_github("tylermorganwall/rayshader")
+library(rayshader)
 
-#load the training data set ----
+#load the training and validation data set ----
 
 
 raw_training_data_set <- read.csv('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/Data sets/trainingData.csv')
 
+raw_validation_data_set <- read.csv('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/Data sets/validationData.csv')
 
 #data exploration ----
 
@@ -134,18 +136,141 @@ histogram(raw_training_data_set$FLOOR)
 
 #Preprocessing ----
 
+#transforming categorical columns into factor
+
+raw_training_data_set$FLOOR <- as.factor(raw_training_data_set$FLOOR)
+
+raw_training_data_set$BUILDINGID <- as.factor(raw_training_data_set$BUILDINGID)
+
+raw_training_data_set$SPACEID <- as.factor(raw_training_data_set$SPACEID)
+
+raw_training_data_set$RELATIVEPOSITION <- as.factor(raw_training_data_set$RELATIVEPOSITION)
+
+raw_training_data_set$USERID <- as.factor(raw_training_data_set$USERID)
+
+raw_training_data_set$PHONEID <- as.factor(raw_training_data_set$PHONEID)
 
 
+#given the repeated spaceid number, we are creating a new variable to be predicted
+#that is a factor of building mixed with space id,adding and additional data set
+#for testing with in/out of the space variable
+
+base_data_for_classification <- raw_training_data_set
+
+base_data_for_classification_in_out <- raw_training_data_set
+
+base_data_for_classification$building_space <- as.factor(paste(base_data_for_classification$BUILDINGID,
+                                                     base_data_for_classification$SPACEID,
+                                                     sep = '-'))
+
+base_data_for_classification_in_out$building_space__in_out <- as.factor(paste(base_data_for_classification_in_out$BUILDINGID,
+                                                                              base_data_for_classification_in_out$RELATIVEPOSITION,
+                                                                              base_data_for_classification_in_out$SPACEID,
+                                                                              sep = '-'))
 
 
+#removing columns with no information to make the modelling faster
+
+#starting with the non wap data, we take out the variables for regression and the id's
+
+base_data_for_classification <-base_data_for_classification[,-c(529,528,527,526,525,524,523,522,521)]
+
+base_data_for_classification_in_out <-base_data_for_classification_in_out[,-c(529,528,527,526,525,524,523,522,521)]
 
 
+#checking for columns that add no information and model would disregard as they are
+#constants
+
+base_data_for_classification <- base_data_for_classification[,-c(nearZeroVar(base_data_for_classification, uniqueCut = 0))]
+
+base_data_for_classification_in_out <- base_data_for_classification_in_out[,-c(nearZeroVar(base_data_for_classification_in_out, uniqueCut = 0))]
 
 
+#first model testing for predictions with random forest ----
 
 
+#making a first approach to the classification problem with the full data set to 
+#evaluate possible next steps
+
+intraining_raw <- createDataPartition(raw_training_data_set$SPACEID,
+                                      p=0.70,
+                                      list = FALSE) 
+
+training_raw <- raw_training_data_set[intraining_raw,]
+
+testing_raw <- raw_training_data_set[-intraining_raw,]
 
 
+first_approach_random_forest <- ranger(formula = SPACEID~.,
+                                       data = training_raw,
+                                       verbose = T)
+
+first_approach_predictions <- predict(first_approach_random_forest,testing_raw)
+
+confusionMatrix(first_approach_predictions$predictions,testing_raw$SPACEID)
+
+# Accuracy : 0.8797               
+# 95% CI : (0.8712, 0.8879)     
+# No Information Rate : 0.0244               
+# P-Value [Acc > NIR] : < 0.00000000000000022
+# 
+# Kappa : 0.8781      
 
 
+#We can observe that base accuracy is fairly good with a high kappa score
+#but we need to take into account that this measure those not include building and 
+#in/out measure.
 
+#trying to predict real scenario with full location factor created
+
+
+training_raw$full_location <- as.factor(paste(training_raw$BUILDINGID,
+                                     training_raw$RELATIVEPOSITION,
+                                     training_raw$SPACEID,
+                                     sep ='-'))
+
+testing_raw$full_location <- as.factor(paste(testing_raw$BUILDINGID,
+                                   testing_raw$RELATIVEPOSITION,
+                                   testing_raw$SPACEID,
+                                    sep ='-'))
+
+#removing the variables not used for predictions
+
+training_raw <- training_raw[,-c(521:529)]
+
+testing_raw <- testing_raw[,-c(521:529)]
+
+#modelling
+
+second_approach_random_forest <- ranger(formula = full_location~.,
+                                       data = training_raw,
+                                       verbose = T)
+
+second_approach_predictions <- predict(second_approach_random_forest,testing_raw)
+
+postResample(second_approach_predictions$predictions,testing_raw$full_location)
+
+# Accuracy : 0.9249               
+# 95% CI : (0.9179, 0.9315)     
+# No Information Rate : 0.0096               
+# P-Value [Acc > NIR] : < 0.00000000000000022
+# 
+# Kappa : 0.9245               
+
+#accuracy actually increases when the specific labels are added, testing accuracy
+#and kappa against second available data set
+
+
+raw_validation_data_set$full_location <- as.factor(paste(raw_validation_data_set$BUILDINGID,
+                                                         raw_validation_data_set$RELATIVEPOSITION,
+                                                         raw_validation_data_set$SPACEID,
+                                                         sep ='-'))
+
+raw_validation_predictions <- predict(second_approach_random_forest,raw_validation_data_set)
+
+postResample(raw_validation_predictions$predictions,raw_validation_data_set$full_location)
+
+
+#Only building and floor are available in the validation data set, given this, we need to change
+#the approach for a classification problem as it is not possible to measure the predictions 
+#without this data.
