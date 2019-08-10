@@ -3,9 +3,8 @@
 #load packages ----
 
 pacman::p_load(dplyr,caret,ggplot2,tidyr,utils,matrixStats,sf,viridis, 
-               graphics,ranger)
+               graphics,ranger,plotly)
 
-library(rayshader)
 
 #load the training and validation data set ----
 
@@ -92,7 +91,12 @@ location_data_gg = ggplot(location_data) +
         text = element_text(size=12))
 
 
-plot_gg(location_data_gg, height=3, width=3.5, multicore=TRUE, pointcontract = 0.7, soliddepth=-100)
+plot_ly(x=raw_training_data_set$LATITUDE, 
+        y=raw_training_data_set$LONGITUDE, 
+        z=raw_training_data_set$FLOOR, 
+        type="scatter3d", 
+        mode="markers", 
+        size=3)
 
 
 #it seems that the 4th floor only has measures for the last building and that density seems to 
@@ -201,9 +205,12 @@ training_raw <- raw_training_data_set[intraining_raw,]
 testing_raw <- raw_training_data_set[-intraining_raw,]
 
 
-first_approach_random_forest <- ranger(formula = SPACEID~.,
-                                       data = training_raw,
-                                       verbose = T)
+# first_approach_random_forest <- ranger(formula = SPACEID~.,
+#                                        data = training_raw,
+#                                        verbose = T)
+
+first_approach_random_forest <- readRDS("c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/first_approach_random_forest")
+
 
 first_approach_predictions <- predict(first_approach_random_forest,testing_raw)
 
@@ -242,9 +249,13 @@ testing_raw <- testing_raw[,-c(521:529)]
 
 #modelling
 
-second_approach_random_forest <- ranger(formula = full_location~.,
-                                       data = training_raw,
-                                       verbose = T)
+# second_approach_random_forest <- ranger(formula = full_location~.,
+#                                        data = training_raw,
+#                                        verbose = T)
+
+
+second_approach_random_forest <- readRDS("c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/second_approach_random_forest.rds")
+
 
 second_approach_predictions <- predict(second_approach_random_forest,testing_raw)
 
@@ -274,3 +285,132 @@ postResample(raw_validation_predictions$predictions,raw_validation_data_set$full
 #Only building and floor are available in the validation data set, given this, we need to change
 #the approach for a classification problem as it is not possible to measure the predictions 
 #without this data.
+
+
+#switching approach to predictions, will work with longitude and latitude 
+
+#trying to determine what's the most succesfull metric to predict to add information to the 
+#table by phases for predictions
+
+
+#target variables 
+#LATITUDE
+#LONGITUDE
+#BUILDINGID
+#FLOOR
+
+#building quick models for this
+
+#returning training raw and testing raw to base state for the new predictions
+
+intraining_raw <- createDataPartition(raw_training_data_set$SPACEID,
+                                      p=0.70,
+                                      list = FALSE) 
+
+training_raw <- raw_training_data_set[intraining_raw,]
+
+
+
+testing_raw <- raw_training_data_set[-intraining_raw,]
+
+
+
+#predicting variables
+
+k <-c(522,521,524,523)
+
+
+for (i in k) { 
+  
+  training_raw_2 <- training_raw[,c(1:520,i)]
+  testing_raw_2 <- testing_raw[,c(1:520,i)]
+
+  models_for_comparison <- ranger(formula = training_raw_2[,521]~.,
+                                         data = training_raw_2[,1:520],
+                                         verbose = T,
+                                         importance = 'impurity')
+
+  predictions_for_comparison <- predict(models_for_comparison,testing_raw_2)
+
+  results <- postResample(predictions_for_comparison$predictions,testing_raw_2[,521])
+
+  print(colnames(training_raw_2[521]))
+  print(results)
+
+}
+
+#Random Forest result for each of the variables as predictors
+
+# [1] "LATITUDE"
+#      RMSE  Rsquared       MAE 
+# 6.7863857 0.9898378 4.4333349 
+# [1] "LONGITUDE"
+#      RMSE  Rsquared       MAE 
+# 9.0825324 0.9946211 5.4436726 
+# [1] "BUILDINGID"
+# Accuracy     Kappa 
+# 0.9984841 0.9976169 
+# [1] "FLOOR"
+# Accuracy     Kappa 
+# 0.9907361 0.9880252 
+
+
+
+
+#General model approach with random forest seems pretty accurate, will train the model 
+#and test against real world behaviour with the validation set
+
+#assigning nominal variables as factor for predictions
+
+raw_training_data_set$FLOOR <- as.factor(raw_training_data_set$FLOOR)
+
+raw_training_data_set$BUILDINGID <- as.factor(raw_training_data_set$BUILDINGID)
+
+raw_validation_data_set$FLOOR <- as.factor(raw_validation_data_set$FLOOR)
+
+raw_validation_data_set$BUILDINGID <- as.factor(raw_validation_data_set$BUILDINGID)
+
+k <-c(522,521,524,523)
+
+for (i in k) {
+
+  full_train_data <- raw_training_data_set[,c(1:520,i)]
+  test_validation_data <- raw_validation_data_set[,c(1:520,i)]
+
+
+  models_for_comparison <- ranger(formula = full_train_data[,521]~.,
+                                  data = full_train_data[,1:520],
+                                  verbose = T,importance = 'impurity')
+
+  predictions_for_comparison <- predict(models_for_comparison,test_validation_data)
+
+  results_phase_3 <- postResample(predictions_for_comparison$predictions,test_validation_data[,521])
+
+  print(colnames(full_train_data[521]))
+  print(results_phase_3)
+
+}
+
+# [1] "LATITUDE"
+#       RMSE   Rsquared        MAE 
+# 11.1871928  0.9771573  7.5487570 
+# [1] "LONGITUDE"
+#       RMSE   Rsquared        MAE 
+# 12.0921702  0.9901277  8.6260217 
+# [1] "BUILDINGID"
+# Accuracy    Kappa 
+#         1        1 
+# [1] "FLOOR"
+# Accuracy     Kappa 
+# 0.8676868 0.8156839 
+
+
+#Confussion matrix for floor given that it was the least accurate
+
+#                     predicted
+# true    0    1    2    3    4
+#    0 4321   11    0   37    0
+#    1   28 4965    7    2    0
+#    2    1   18 4377   20    0
+#    3    1    0    8 5039    0
+#    4    0    0    0    3 1099
