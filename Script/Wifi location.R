@@ -3,7 +3,7 @@
 #load packages ----
 
 pacman::p_load(dplyr,caret,ggplot2,tidyr,utils,matrixStats,sf,viridis, 
-               graphics,ranger,plotly)
+               graphics,ranger,plotly,FNN)
 
 
 #load the training and validation data set ----
@@ -190,7 +190,7 @@ base_data_for_classification <- base_data_for_classification[,-c(nearZeroVar(bas
 base_data_for_classification_in_out <- base_data_for_classification_in_out[,-c(nearZeroVar(base_data_for_classification_in_out, uniqueCut = 0))]
 
 
-#first model testing for predictions with random forest ----
+#Random Forest fist model test ----
 
 
 #making a first approach to the classification problem with the full data set to 
@@ -414,3 +414,289 @@ for (i in k) {
 #    2    1   18 4377   20    0
 #    3    1    0    8 5039    0
 #    4    0    0    0    3 1099
+
+#we can see that the error is spread out all buildings, however, third floor was the worse floor
+#to be predicted and it also gets the third floor predicted as the fourth floor. Having additional
+#information from the buildings will probably help the models discriminate better between floors
+
+#I will now review different models with it's basic componets to see which one might be the best
+#one for this problem.
+
+
+
+#Normal KNN model test ----
+
+#predicting latitude with the training set
+
+# knn_base_model_latitude <- knn.reg(train = training_raw[,1:520],
+#                           y = training_raw[,522],
+#                           k=3,
+#                           test = testing_raw[,1:520])
+# 
+# saveRDS(knn_base_model_latitude, 'knn_base_model_latitude.rds')
+
+knn_base_model_latitude <- readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/knn_base_model_latitude.rds')
+
+knn_predictions_base_latitude <- data.frame(predicted = knn_base_model_latitude$pred,
+                              real_values = testing_raw$LATITUDE)
+
+postResample(knn_predictions_base_latitude$predicted,
+             knn_predictions_base_latitude$real_values)
+
+#      RMSE  Rsquared       MAE 
+# 8.2785240 0.9847465 3.0302466 
+
+#taking note on the difference between MAE and RMSE, outlier preprocessing might be benefical.
+
+#base error seem to be performing worse than random forest against train set, predicting 
+#validation set
+
+
+#predicting latitude with the validation set
+
+# knn_base_validation_model_latitude <- knn.reg(train = raw_training_data_set[,1:520],
+#                                                 y = raw_training_data_set[,522],
+#                                                 k=3,
+#                                                 test = raw_validation_data_set[,1:520])
+# 
+# saveRDS(knn_base_validation_model_latitude, 'knn_base_validation_model_latitude.rds')
+
+knn_base_validation_model_latitude <- readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/knn_base_validation_model_latitude.rds')
+
+knn_predictions_base_validations_latitude <- data.frame(predicted = knn_base_validation_model_latitude$pred,
+                                                          real_values = raw_validation_data_set$LATITUDE)
+
+postResample(knn_predictions_base_validations_latitude$predicted,
+             knn_predictions_base_validations_latitude$real_values)
+
+
+#       RMSE   Rsquared        MAE 
+# 13.9293919  0.9615796  8.2390610 
+
+#Viewing the error against the validation set
+
+knn_predictions_base_validations_latitude$percentual_error <- (knn_predictions_base_validations_latitude$real_values-knn_predictions_base_validations_latitude$predicted)/knn_predictions_base_validations_latitude$real_values
+
+plot(knn_predictions_base_validations_latitude$percentual_error)
+
+
+#there doesnt seem to be clear patterns, just some outliers
+
+knn_predictions_base_validations_latitude$real_error <- (knn_predictions_base_validations_latitude$real_values-knn_predictions_base_validations_latitude$predicted)
+
+plot(knn_predictions_base_validations_latitude$real_error)
+
+#observation index bigger and smaller than than 800 and 400 seem to be where the biggest errors are
+
+
+#predicting longitude with the training set
+
+# knn_base_model_longitude <- knn.reg(train = training_raw[,1:520],
+#                           y = training_raw[,521],
+#                           k=3,
+#                           test = testing_raw[,1:520])
+
+#saveRDS(knn_base_model_longitude, 'knn_base_model_longitude.rds')
+
+knn_base_model_longitude <- readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/knn_base_model_longitude.rds')
+
+knn_predictions_base_longitude <- data.frame(predicted = knn_base_model_longitude$pred,
+                                            real_values = testing_raw$LONGITUDE)
+
+postResample(knn_predictions_base_longitude$predicted,
+             knn_predictions_base_longitude$real_values)
+
+
+# RMSE  Rsquared       MAE 
+# 8.8630784 0.9948535 3.5483600 
+
+#predicting longitude with the validation set
+
+
+# knn_base_validation_model_longitude <- knn.reg(train = raw_training_data_set[,1:520],
+#                                                 y = raw_training_data_set[,521],
+#                                                 k=3,
+#                                                 test = raw_validation_data_set[,1:520])
+# 
+# saveRDS(knn_base_validation_model_longitude, 'knn_base_validation_model_longitude.rds')
+
+knn_base_validation_model_longitude <- readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/knn_base_validation_model_longitude.rds.rds')
+
+knn_predictions_base_validations_longitude <- data.frame(predicted = knn_base_validation_model_longitude$pred,
+                                                        real_values = raw_validation_data_set$LONGITUDE)
+
+postResample(knn_predictions_base_validations_longitude$predicted,
+             knn_predictions_base_validations_longitude$real_values)
+
+
+# RMSE   Rsquared        MAE 
+# 16.9320687  0.9803688  9.0332732
+
+#bigger error but with a good R squared.
+
+
+#predicting building ID
+
+# knn_base_model_building_id <- knn(train = training_raw[,1:520],
+#                                    cl = training_raw[,524],
+#                                    test = testing_raw[1:520],
+#                                    k = 3)
+# 
+# saveRDS(knn_base_model_building_id, 'knn_base_model_building_id.rds')
+
+knn_base_model_building_id <- readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/knn_base_model_building_id.rds')
+
+knn_predictions_base_building_id <- data.frame(predicted = knn_base_model_building_id,
+                                                         real_values = testing_raw$BUILDINGID)
+
+confusionMatrix(knn_predictions_base_building_id$predicted,
+                knn_predictions_base_building_id$real_values)
+
+# Confusion Matrix and Statistics
+
+#                  Reference
+# Prediction      0    1    2
+#            0 1562    0    0
+#            1    0 1528    1
+#            2    0    9 2837
+# 
+# Overall Statistics
+# 
+# Accuracy : 0.9983               
+# 95% CI : (0.9969, 0.9992)     
+# No Information Rate : 0.478                
+# P-Value [Acc > NIR] : < 0.00000000000000022
+# 
+# Kappa : 0.9973
+
+#Error is low with good kappa, mistakes for building id are in building 1 and 2,
+#specially in bulding number 1. similar results against test with random forest
+
+
+
+#predicting building id against validation set
+
+# knn_base_model_validation_building_id <- knn(train = raw_training_data_set[,1:520],
+#                                                cl = raw_training_data_set[,524],
+#                                                test = raw_validation_data_set[1:520],
+#                                                k = 3)
+
+#saveRDS(knn_base_model_validation_building_id, 'knn_base_model_validation_building_id.rds')
+
+knn_base_model_validation_building_id <- readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/knn_base_model_validation_building_id.rds')
+
+knn_predictions_base_validation_building_id <- data.frame(predicted = knn_base_model_validation_building_id,
+                                                          real_values = raw_validation_data_set$BUILDINGID)
+
+confusionMatrix(knn_predictions_base_validation_building_id$predicted,
+                knn_predictions_base_validation_building_id$real_values)
+
+# Confusion Matrix and Statistics
+
+#                   Reference
+# Prediction       0   1   2
+#              0 535   0   0
+#              1   0 303   0
+#              2   1   4 268
+# 
+# Overall Statistics
+# 
+# Accuracy : 0.9955               
+# 95% CI : (0.9895, 0.9985)     
+# No Information Rate : 0.4824               
+# P-Value [Acc > NIR] : < 0.00000000000000022
+# 
+# Kappa : 0.9929          
+
+#good results but performs worse than random forest
+
+
+#predicting floor with normal knn
+
+
+# knn_base_model_floor <- knn(train = training_raw[,1:520],
+#                                    cl = training_raw[,523],
+#                                    test = testing_raw[1:520],
+#                                    k = 3)
+# 
+# saveRDS(knn_base_model_floor, 'knn_base_model_floor.rds')
+
+knn_base_model_floor<- readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/knn_base_model_floor.rds')
+
+knn_predictions_base_FLOOR <- data.frame(predicted = knn_base_model_floor,
+                                               real_values = testing_raw$FLOOR)
+
+confusionMatrix(knn_predictions_base_FLOOR$predicted,
+                knn_predictions_base_FLOOR $real_values)
+
+# Confusion Matrix and Statistics
+
+#                           Reference
+# Prediction         0    1    2    3    4
+#               0 1250   60    6   11    1
+#               1    9 1424   13    4    0
+#               2    2   13 1275   20    0
+#               3    0    0   59 1459    3
+#               4    0    0    0    2  326
+# 
+# Overall Statistics
+# 
+# Accuracy : 0.9658               
+# 95% CI : (0.9609, 0.9703)     
+# No Information Rate : 0.2521               
+# P-Value [Acc > NIR] : < 0.00000000000000022
+# 
+# Kappa : 0.9558
+
+#model seems to be having issues determining floors given the trianing data set, 
+#being the third floor the worst. doesnt make many 4th floor mistakes.
+
+
+#predicting floor with against validation data 
+
+# knn_base_model_validation_floor <- knn(train = raw_training_data_set[,1:520],
+#                                                 cl = raw_training_data_set[,523],
+#                                                 test = raw_validation_data_set[1:520],
+#                                                 k = 3)
+# 
+# saveRDS(knn_base_model_validation_floor, 'knn_base_model_validation_floor.rds')
+
+knn_base_model_validation_floor <- readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/knn_base_model_validation_floor.rds')
+
+knn_predictions_base_validation_floor <- data.frame(predicted = knn_base_model_validation_floor,
+                                                          real_values = raw_validation_data_set$FLOOR)
+
+confusionMatrix(knn_predictions_base_validation_floor$predicted,
+                knn_predictions_base_validation_floor$real_values)
+
+
+# Confusion Matrix and Statistics
+# 
+#                      Reference
+# Prediction   0   1   2   3   4
+#          0 113  71  15   6   5
+#          1  11 331   8   0   1
+#          2   6  58 199  11   0
+#          3   2   2  84 152  11
+#          4   0   0   0   3  22
+# 
+# Overall Statistics
+# 
+# Accuracy : 0.7354               
+# 95% CI : (0.7084, 0.7611)     
+# No Information Rate : 0.4158               
+# P-Value [Acc > NIR] : < 0.00000000000000022
+# 
+# Kappa : 0.6436
+
+
+#KNN is considerably worse at predicting the floor with lower accuracy, kappa and 
+#and confuses predictions between floors a lot more.
+
+
+#given that the models seem to have fairly similar prediction rates with the first
+#three predicted variables, I will be testing the next models directly with the 
+#most complicated variable instead: 'FLOOR'
+
+#Gradient boosted tree model test ----
+
