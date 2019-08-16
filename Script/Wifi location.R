@@ -3,7 +3,7 @@
 #load packages ----
 
 pacman::p_load(dplyr,caret,ggplot2,tidyr,utils,matrixStats,sf,viridis, 
-               graphics,ranger,plotly,FNN)
+               graphics,ranger,plotly,FNN,h2o,)
 
 
 #load the training and validation data set ----
@@ -190,7 +190,7 @@ base_data_for_classification <- base_data_for_classification[,-c(nearZeroVar(bas
 base_data_for_classification_in_out <- base_data_for_classification_in_out[,-c(nearZeroVar(base_data_for_classification_in_out, uniqueCut = 0))]
 
 
-#Random Forest fist model test ----
+#Random Forest fist model approach ----
 
 
 #making a first approach to the classification problem with the full data set to 
@@ -424,7 +424,7 @@ for (i in k) {
 
 
 
-#Normal KNN model test ----
+#Normal KNN model approach ----
 
 #predicting latitude with the training set
 
@@ -520,7 +520,7 @@ postResample(knn_predictions_base_longitude$predicted,
 # 
 # saveRDS(knn_base_validation_model_longitude, 'knn_base_validation_model_longitude.rds')
 
-knn_base_validation_model_longitude <- readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/knn_base_validation_model_longitude.rds.rds')
+knn_base_validation_model_longitude <- readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/models/knn_base_validation_model_longitude.rds')
 
 knn_predictions_base_validations_longitude <- data.frame(predicted = knn_base_validation_model_longitude$pred,
                                                         real_values = raw_validation_data_set$LONGITUDE)
@@ -698,5 +698,198 @@ confusionMatrix(knn_predictions_base_validation_floor$predicted,
 #three predicted variables, I will be testing the next models directly with the 
 #most complicated variable instead: 'FLOOR'
 
-#Gradient boosted tree model test ----
+#Gradient boosted tree model approach ----
+
+#trying H20 approach first to predict floor
+
+#predicting with train set
+
+h2o.init()
+
+# training_raw_h2o <- as.h2o(training_raw)
+# 
+# 
+# h2o_gradient_boosted_tree_training_model <- h2o.gbm(x = 1:520,
+#                                                     y = 523,
+#                                                     training_frame = training_raw_h2o,
+#                                                     nfolds = 10,
+#                                                     ntrees = 50)
+# 
+# saveRDS(h2o_gradient_boosted_tree_training_model,'h2o_gradient_boosted_tree_training_model')
+
+h2o_gradient_boosted_tree_training_model <- readRDS('c://Users/riqui/desktop/Ubiqum course/Project 9/Wifi Project/models/h2o_gradient_boosted_tree_training_model')
+
+testing_raw_h2o <- as.h2o(testing_raw)
+
+h2o_base_training_predictions <- h2o.predict(object = h2o_gradient_boosted_tree_training_model
+                                              ,newdata = testing_raw_h2o)
+
+h2o_testing_results <- as.vector(h2o_base_training_predictions$predict)
+
+
+h2o_test_results <-   data.frame(predicted = h2o_testing_results,
+                                 real = testing_raw$FLOOR)
+
+confusionMatrix(h2o_test_results$predicted,h2o_test_results$real)
+
+# Confusion Matrix and Statistics
+
+#                           Reference
+# Prediction    0    1    2    3    4
+#          0 1276   19    0    2    0
+#          1   29 1480   14   10    0
+#          2    2   25 1245   11    0
+#          3    0    4   22 1467    4
+#          4    0    0    0    1  326
+# 
+# Overall Statistics
+# 
+# Accuracy : 0.9759               
+# 95% CI : (0.9717, 0.9797)     
+# No Information Rate : 0.2574               
+# P-Value [Acc > NIR] : < 0.00000000000000022
+# 
+# Kappa : 0.9688
+
+
+#predicting floor against validation set
+
+training_raw_full_h2o <- as.h2o(raw_training_data_set)
+
+# h2o_gradient_boosted_tree_validation_model <- h2o.gbm(x = 1:520,
+#                                                     y = 523,
+#                                                     training_frame = training_raw_full_h2o,
+#                                                     nfolds = 10,
+#                                                     ntrees = 50)
+# 
+# saveRDS(h2o_gradient_boosted_tree_validation_model,'h2o_gradient_boosted_tree_validation_model')
+
+h2o_gradient_boosted_tree_validation_model<- readRDS('c://Users/riqui/desktop/Ubiqum course/Project 9/Wifi Project/models/h2o_gradient_boosted_tree_validation_model')
+
+testing_raw_validation_h2o <- as.h2o(raw_validation_data_set)
+
+h2o_base_validation_predictions <- h2o.predict(object = h2o_gradient_boosted_tree_validation_model
+                                             ,newdata = testing_raw_validation_h2o )
+
+h2o_validation_results <- as.vector(h2o_base_validation_predictions$predict)
+
+
+h2o_validation_results <-   data.frame(predicted = h2o_validation_results,
+                                 real = raw_validation_data_set$FLOOR)
+
+confusionMatrix(h2o_validation_results$predicted,h2o_validation_results$real)
+
+# Confusion Matrix and Statistics
+#  
+#                       Reference
+# Prediction    0   1   2   3   4
+#           0 112  15   1   0   1
+#           1  12 381  13   2   1
+#           2   6  57 257  10   0
+#           3   2   9  35 156  14
+#           4   0   0   0   4  23
+# 
+# Overall Statistics
+# 
+# Accuracy : 0.8362               
+# 95% CI : (0.8131, 0.8575)     
+# No Information Rate : 0.4158               
+# P-Value [Acc > NIR] : < 0.00000000000000022
+# 
+# Kappa : 0.7726
+
+
+#lower results for the gradient boosted tree.
+
+
+#Weighted KNN  approach ----
+
+#test set
+
+# kknn_model_tesrting <- kknn(formula = formula(training_raw[,523]~.),
+#                             train = training_raw[,1:520],
+#                             test = testing_raw,
+#                             k = 3,
+#                             distance = 1) 
+
+#saveRDS(kknn_model_tesrting ,'kknn_model_tesrting.rds')
+
+kknn_model_tesrting <- readRDS('c://Users/riqui/desktop/Ubiqum course/Project 9/Wifi Project/models/kknn_model_tesrting.rds ')
+
+fit_knn_training <- fitted(kknn_model_tesrting)
+
+confusionMatrix(fit_knn_training,testing_raw$FLOOR)
+
+# Confusion Matrix and Statistics
+# 
+#                           Reference
+# Prediction    0    1    2    3    4
+#          0 1290   31    2   10    0
+#          1    6 1449   16    1    0
+#          2    0    3 1277    9    0
+#          3    0    0   31 1487    0
+#          4    0    0    0    0  325
+# 
+# Overall Statistics
+# 
+# Accuracy : 0.9816               
+# 95% CI : (0.9779, 0.9849)     
+# No Information Rate : 0.2538               
+# P-Value [Acc > NIR] : < 0.00000000000000022
+# 
+# Kappa : 0.9762  
+
+
+#testing against validation set
+
+
+# kknn_model_validation <- kknn(formula = formula(raw_training_data_set[,523]~.),
+#                                train = raw_training_data_set[,1:520],
+#                                test = raw_validation_data_set,
+#                                k = 3,
+#                                distance = 1)
+# 
+# saveRDS(kknn_model_validation ,'kknn_model_validation.rds')
+
+
+kknn_model_validation <- readRDS('c://Users/riqui/desktop/Ubiqum course/Project 9/Wifi Project/models/kknn_model_validation.rds ')
+
+fit_knn_validation <- fitted(kknn_model_validation)
+
+confusionMatrix(fit_knn_validation,raw_validation_data_set$FLOOR)
+
+# Confusion Matrix and Statistics
+# 
+#                      Reference
+# Prediction   0   1   2   3   4
+#          0 112  49  11   7   7
+#          1  10 345  14   3   0
+#          2   9  67 206  15   0
+#          3   1   1  75 145  11
+#          4   0   0   0   2  21
+# 
+# Overall Statistics
+# 
+# Accuracy : 0.7462               
+# 95% CI : (0.7195, 0.7715)     
+# No Information Rate : 0.4158               
+# P-Value [Acc > NIR] : < 0.00000000000000022
+# 
+# Kappa : 0.6542 
+
+
+#basic results against validation are not very good, testing one last method before
+#proceeding to cascade models, as I suspect that providing the additional information
+#and preprocessing can boost the performance of floor prediction which is the 
+#biggest target variable
+
+
+
+
+
+
+
+
+
+#Multi label classification approach
 
