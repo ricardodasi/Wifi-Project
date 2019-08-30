@@ -751,10 +751,10 @@ postResample(random_forest_longitude_prediction_building_0$predictions,
 
 longitude_error_building_0 <-
   data.frame(real_longitude = cascading_validation_data_set_predicted_building_0$LONGITUDE,
-                              predicted_longitude = random_forest_longitude_prediction_building_0$predictions,
-                              real_error = (cascading_validation_data_set_predicted_building_0$LONGITUDE - random_forest_longitude_prediction_building_0$predictions),
-                              percentual_error = (cascading_validation_data_set_predicted_building_0$LONGITUDE - random_forest_longitude_prediction_building_0$predictions)/cascading_validation_data_set_predicted_building_0$LONGITUDE,
-                              real_building = cascading_validation_data_set_predicted_building_0$BUILDINGID)
+              predicted_longitude = random_forest_longitude_prediction_building_0$predictions,
+              real_error = (cascading_validation_data_set_predicted_building_0$LONGITUDE - random_forest_longitude_prediction_building_0$predictions),
+              percentual_error = (cascading_validation_data_set_predicted_building_0$LONGITUDE - random_forest_longitude_prediction_building_0$predictions)/cascading_validation_data_set_predicted_building_0$LONGITUDE,
+              real_building = cascading_validation_data_set_predicted_building_0$BUILDINGID)
 
 
 #Error plots 
