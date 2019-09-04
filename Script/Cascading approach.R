@@ -359,6 +359,7 @@ cascading_validation_data_set_predicted_building_1 <- cascading_validation_data_
 
 cascading_validation_data_set_predicted_building_2 <- cascading_validation_data_set %>% filter(predicted_building == 2) 
 
+
 #predicting latitude for building 0
 
 
