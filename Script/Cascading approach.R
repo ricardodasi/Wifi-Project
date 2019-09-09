@@ -1180,13 +1180,13 @@ cascading_validation_data_set_predicted_building_2$predicted_latitude_2 <-
 #predicting building 0
 
 
-random_forest_building_0_floor_model <-
-  ranger(formula = cascading_train_data_set_predicted_building_0[,468]~.,
-          data = cascading_train_data_set_predicted_building_0[,c(1:465,470,473,472)],
-          verbose = T,importance = 'impurity')
-
-saveRDS(random_forest_building_0_floor_model,
-        'random_forest_building_0_floor_model.rds')
+# random_forest_building_0_floor_model <-
+#   ranger(formula = cascading_train_data_set_predicted_building_0[,468]~.,
+#           data = cascading_train_data_set_predicted_building_0[,c(1:465,470,473,472)],
+#           verbose = T,importance = 'impurity')
+# 
+# saveRDS(random_forest_building_0_floor_model,
+#         'random_forest_building_0_floor_model.rds')
 
 random_forest_building_0_floor_model <-
   readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/Script/random_forest_building_0_floor_model.rds')
@@ -1249,13 +1249,13 @@ confusionMatrix(random_forest_floor_prediction_building_0$predictions,
 
 #predicting building 1
 
-random_forest_building_1_floor_model <-
-  ranger(formula = cascading_train_data_set_predicted_building_1[,468]~.,
-          data = cascading_train_data_set_predicted_building_1[,c(1:465,470,473,472)],
-          verbose = T,importance = 'impurity')
-
-saveRDS(random_forest_building_1_floor_model,
-        'random_forest_building_1_floor_model.rds')
+# random_forest_building_1_floor_model <-
+#   ranger(formula = cascading_train_data_set_predicted_building_1[,468]~.,
+#           data = cascading_train_data_set_predicted_building_1[,c(1:465,470,473,472)],
+#           verbose = T,importance = 'impurity')
+# 
+# saveRDS(random_forest_building_1_floor_model,
+#         'random_forest_building_1_floor_model.rds')
 
 random_forest_building_1_floor_model <-
   readRDS('c://Users/riqui/Desktop/Ubiqum course/Project 9/Wifi Project/Script/random_forest_building_1_floor_model.rds')
